@@ -4,12 +4,12 @@ body {
     margin: 0;
     font: normal 75% Arial, Helvetica, sans-serif;
   }
-  
+
   canvas {
     display: block;
     vertical-align: bottom;
   }
-  
+
   /* ---- particles.js container ---- */
   #particles-js {
     position: absolute;
@@ -21,7 +21,7 @@ body {
     background-size: cover;
     background-position: 50% 50%;
   }
-  
+
   /* ---- Text overlay ---- */
   .overlay-content {
     position: absolute;
@@ -31,17 +31,17 @@ body {
     color: white;
     z-index: 1; /* Ensures it's on top of the particles */
   }
-  
+
   .overlay-content h1 {
     font-size: 3em;
     margin: 0;
   }
-  
+
   .overlay-content p {
     font-size: 1.5em;
     margin: 0;
   }
-  
+
   .resume-link {
     color: #ffffff; /* White text color */
     text-decoration: underline; /* Underline to signify it's a link */
@@ -63,22 +63,21 @@ body {
     font-family: Helvetica, Arial, sans-serif;
     font-weight: bold;
   }
-  
+
   .js-count-particles {
     font-size: 1.1em;
   }
-  
+
   #stats,
   .count-particles {
     -webkit-user-select: none;
   }
-  
+
   #stats {
     border-radius: 3px 3px 0 0;
     overflow: hidden;
   }
-  
+
   .count-particles {
     border-radius: 0 0 3px 3px;
   }
-  
