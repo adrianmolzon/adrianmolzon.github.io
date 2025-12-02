@@ -1,27 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Adrian Molzon</title>
-    <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <title>Panel Strip Prototype – Static Under Panels</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    .under-panel {
+      transform: none !important;
+      transform-style: flat !important;
+      backface-visibility: visible !important;
+    }
+    .static-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backface-visibility: visible !important;
+      transform: none !important;
+      transform-style: flat !important;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .panel {
+      isolation: isolate;
+    }
+  </style>
 </head>
 <body>
-    <!-- particles.js container -->
-    <div id="particles-js"></div>
+  <div class="panel-strip" id="panelStrip"></div>
 
-    <!-- Text overlay (Header and Subheader) -->
-    <div class="overlay-content">
-        <h1>ADRIAN MOLZON</h1>
-        <br>
-        <p>
-            Data scientist/Software engineer with experience in the self driving vehicle and rail industry<br>
-            If you're looking for a nice, talented developer, <a href="resume.pdf" target="_blank" class="resume-link">download my CV here</a>.</p>
-        </p>
-    </div>
+  <script>
+    // --- Pantone-like dictionary (placeholder sample data for now) ---
+    const pantonePalette = [
+      {
+        hex: "#1A1A1A",
+        name: "Neutral Black",
+        textColor: "#F5F5F5",
+        role: "background",
+      },
+      {
+        hex: "#F5F5F5",
+        name: "Soft White",
+        textColor: "#111111",
+        role: "background",
+      },
+      {
+        hex: "#003366",
+        name: "Deep Blue",
+        textColor: "#F5F5F5",
+        role: "accent",
+      },
+      {
+        hex: "#005F73",
+        name: "Teal",
+        textColor: "#F5F5F5",
+        role: "accent",
+      },
+      {
+        hex: "#EE9B00",
+        name: "Warm Amber",
+        textColor: "#111111",
+        role: "accent",
+      },
+      {
+        hex: "#0A9396",
+        name: "Sea Green",
+        textColor: "#F5F5F5",
+        role: "background",
+      },
+      {
+        hex: "#E0E0E0",
+        name: "Cool Grey",
+        textColor: "#111111",
+        role: "background",
+      },
+    ];
 
-    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-    <script src="script.js"></script>
+    // Utility: pick a random panel from the palette
+    function getRandomPantone() {
+      const idx = Math.floor(Math.random() * pantonePalette.length);
+      // return a shallow copy so state is separate from the source palette
+      return { ...pantonePalette[idx] };
+    }
+
+    // --- State ---
+    const NUM_PANELS = 8;
+    let panels = Array.from({ length: NUM_PANELS }, () => getRandomPantone());
+    let direction = 1; // 1 = right, -1 = left
+
+    const stripEl = document.getElementById("panelStrip");
+
+    function renderPanels() {
+      for (let i = 0; i < panels.length; i++) {
+        renderStaticPanel(i, panels[i]);
+      }
+    }
+
+    // --- Render a static underlying panel for a given index ---
+    function renderStaticPanel(index, panelData) {
+      const wrapper = stripEl.querySelector(
+        `.panel-wrapper[data-index="${index}"]`
+      );
+      if (!wrapper || !panelData) return;
+
+      const underEl = wrapper.querySelector(".under-panel");
+      if (!underEl) return;
+
+      // Apply color + text to the static under panel
+      underEl.style.backgroundColor = panelData.hex;
+      underEl.style.color = panelData.textColor;
+
+      const staticContent = underEl.querySelector(".static-content");
+      if (staticContent) {
+        staticContent.innerText = panelData.name;
+      }
+    }
+
+    // --- DOM creation ---
+    function createPanelElements() {
+      stripEl.innerHTML = "";
+      panels.forEach((panel, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "panel-wrapper";
+        wrapper.dataset.index = index.toString();
+
+        const under = document.createElement("div");
+        under.className = "under-panel";
+
+        const underText = document.createElement("div");
+        underText.className = "panel-content static-content";
+        under.appendChild(underText);
+
+        const panelEl = document.createElement("div");
+        panelEl.className = "panel";
+        panelEl.dataset.index = index.toString();
+
+        const content = document.createElement("div");
+        content.className = "panel-content";
+        panelEl.appendChild(content);
+
+        wrapper.appendChild(under);
+        wrapper.appendChild(panelEl);
+        stripEl.appendChild(wrapper);
+
+        panelEl.addEventListener("click", handlePanelClick);
+      });
+    }
+
+    // --- Interaction logic ---
+    function handlePanelClick(event) {
+      const panelEl = event.currentTarget;
+      const index = Number(panelEl.dataset.index);
+      const wrapper = panelEl.parentElement;
+
+      const clickedPanelData = panels[index]; // current top data
+      const dest = index + direction;
+      const newUnderPanel = getRandomPantone();
+
+      const isTurningRight = direction === 1;
+      const turnClass = isTurningRight ? "turn-right" : "turn-left";
+
+      // Earliest action: render a fresh static panel underneath
+      renderStaticPanel(index, newUnderPanel);
+
+      const fullDuration = 300;
+      const startTime = performance.now();
+
+      
+      // Flip direction for next click
+      direction *= -1;
+    }
+
+    // --- Initial bootstrapping ---
+    createPanelElements();
+    renderPanels();
+  </script>
 </body>
 </html>
