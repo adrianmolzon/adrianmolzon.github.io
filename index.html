@@ -5,28 +5,6 @@
   <meta charset="UTF-8" />
   <title>Panel Strip Prototype – Static Under Panels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    .under-panel {
-      transform: none !important;
-      transform-style: flat !important;
-      backface-visibility: visible !important;
-    }
-    .static-content {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backface-visibility: visible !important;
-      transform: none !important;
-      transform-style: flat !important;
-      pointer-events: none;
-      z-index: 0;
-    }
-    .panel {
-      isolation: isolate;
-    }
-  </style>
 </head>
 <body>
   <div class="panel-strip" id="panelStrip"></div>
@@ -95,6 +73,27 @@
     function renderPanels() {
       for (let i = 0; i < panels.length; i++) {
         renderStaticPanel(i, panels[i]);
+        renderTopPanel(i, panels[i]);
+      }
+    }
+
+    // --- Render the top rotating panel for a given index ---
+    function renderTopPanel(index, panelData) {
+      const wrapper = stripEl.querySelector(
+        `.panel-wrapper[data-index="${index}"]`
+      );
+      if (!wrapper || !panelData) return;
+
+      const panelEl = wrapper.querySelector(".panel");
+      if (!panelEl) return;
+
+      // Apply color + text to the top panel
+      panelEl.style.backgroundColor = panelData.hex;
+      panelEl.style.color = panelData.textColor;
+
+      const content = panelEl.querySelector(".panel-content");
+      if (content) {
+        content.innerText = panelData.name;
       }
     }
 
@@ -153,23 +152,29 @@
     function handlePanelClick(event) {
       const panelEl = event.currentTarget;
       const index = Number(panelEl.dataset.index);
-      const wrapper = panelEl.parentElement;
 
-      const clickedPanelData = panels[index]; // current top data
-      const dest = index + direction;
       const newUnderPanel = getRandomPantone();
 
       const isTurningRight = direction === 1;
       const turnClass = isTurningRight ? "turn-right" : "turn-left";
 
-      // Earliest action: render a fresh static panel underneath
+      // Update underlying static panel immediately
       renderStaticPanel(index, newUnderPanel);
 
-      const fullDuration = 300;
-      const startTime = performance.now();
+      // Apply turning class
+      panelEl.classList.add("is-animating", turnClass);
 
-      
-      // Flip direction for next click
+      const fullDuration = 600;
+
+      setTimeout(() => {
+        panelEl.classList.remove("is-animating", "turn-left", "turn-right");
+
+        // Commit new state
+        panels[index] = newUnderPanel;
+        renderStaticPanel(index, panels[index]);
+        renderTopPanel(index, panels[index]);
+      }, fullDuration);
+
       direction *= -1;
     }
 
