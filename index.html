@@ -65,7 +65,12 @@
 
     // --- State ---
     const NUM_PANELS = 8;
-    let panels = Array.from({ length: NUM_PANELS }, () => getRandomPantone());
+    const neutralBlack = { ...pantonePalette[0] }; // Neutral Black
+    const softWhite = { ...pantonePalette[1] }; // Soft White
+    const middleIndex = Math.floor(NUM_PANELS / 2);
+    let panels = Array.from({ length: NUM_PANELS }, (_, i) =>
+      i === middleIndex ? { ...softWhite } : { ...neutralBlack }
+    );
     let direction = 1; // 1 = right, -1 = left
 
     const stripEl = document.getElementById("panelStrip");
@@ -148,35 +153,74 @@
       });
     }
 
-    // --- Interaction logic ---
-    function handlePanelClick(event) {
-      const panelEl = event.currentTarget;
-      const index = Number(panelEl.dataset.index);
+function handlePanelClick(event) {
+  const panelEl = event.currentTarget;
+  const fromIndex = Number(panelEl.dataset.index);
+  const toIndex = fromIndex + direction;
 
-      const newUnderPanel = getRandomPantone();
+  // Don’t go off the ends
+  if (toIndex < 0 || toIndex >= NUM_PANELS) return;
 
-      const isTurningRight = direction === 1;
-      const turnClass = isTurningRight ? "turn-right" : "turn-left";
+  const fromWrapper = panelEl.closest(".panel-wrapper");
+  const toWrapper = stripEl.querySelector(
+    `.panel-wrapper[data-index="${toIndex}"]`
+  );
 
-      // Update underlying static panel immediately
-      renderStaticPanel(index, newUnderPanel);
+  const oldPanelData = panels[fromIndex];
+  const newUnderPanel = getRandomPantone();
 
-      // Apply turning class
-      panelEl.classList.add("is-animating", turnClass);
+  const isTurningRight = direction === 1;
+  const turnClass = isTurningRight ? "turn-right" : "turn-left";
 
-      const fullDuration = 600;
+  // 1. New under-panel at origin
+  renderStaticPanel(fromIndex, newUnderPanel);
 
-      setTimeout(() => {
-        panelEl.classList.remove("is-animating", "turn-left", "turn-right");
+  // 2. Allow crossing boundaries during animation
+  fromWrapper.style.overflow = "visible";
+  toWrapper.style.overflow = "visible";
 
-        // Commit new state
-        panels[index] = newUnderPanel;
-        renderStaticPanel(index, panels[index]);
-        renderTopPanel(index, panels[index]);
-      }, fullDuration);
+  // 3. Animate the top card
+  panelEl.classList.add("is-animating", turnClass);
 
-      direction *= -1;
-    }
+  const fullDuration = 600;
+
+  setTimeout(() => {
+    // 4. End of animation: move card to destination
+
+    panelEl.classList.remove("is-animating", "turn-left", "turn-right");
+
+    // Temporarily disable transition so we can reset transform without a jump
+    panelEl.style.transition = "none";
+
+    // Move DOM card into the destination wrapper
+    fromWrapper.removeChild(panelEl);
+    toWrapper.appendChild(panelEl);
+
+    // Update its index data attribute
+    panelEl.dataset.index = String(toIndex);
+
+    // Reset transform so it “lands” flat in the new slot
+    panelEl.style.transform = "none";
+
+    // Restore overflow defaults
+    fromWrapper.style.overflow = "";
+    toWrapper.style.overflow = "";
+
+    // 5. Update logical state
+    panels[fromIndex] = newUnderPanel;  // origin now has the new card underneath
+    panels[toIndex] = oldPanelData;     // destination inherits the old top card
+
+    renderStaticPanel(fromIndex, panels[fromIndex]);
+    renderStaticPanel(toIndex, panels[toIndex]);
+
+    // Force reflow then restore transition for next time
+    void panelEl.offsetWidth;
+    panelEl.style.transition = "";
+
+  }, fullDuration);
+
+  direction *= -1;
+}
 
     // --- Initial bootstrapping ---
     createPanelElements();

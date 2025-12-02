@@ -19,15 +19,17 @@ body {
   display: flex;
   flex: 1;
   height: 100vh;
+  overflow: visible;       /* NEW – let children spill across panels */
 }
 
 .panel-wrapper {
   position: relative;
   flex: 1;
   height: 100%;
-  perspective: 1000px; /* enables 3D look */
-  overflow: hidden;
-  isolation: isolate; /* creates a new stacking context */
+  perspective: 1000px;
+  overflow: visible;       /* was: hidden */
+  /* remove isolation so z-index can cross columns */
+  /* isolation: isolate;   <-- delete this line */
 }
 
 .under-panel {
@@ -77,10 +79,10 @@ body {
 
 .panel.turn-left {
   transform-origin: left center;
-  transform: rotateY(-180deg);
+  transform: translateX(-100%) rotateY(-180deg);
 }
 
 .panel.turn-right {
   transform-origin: right center;
-  transform: rotateY(180deg);
+  transform: translateX(100%) rotateY(180deg);
 }
