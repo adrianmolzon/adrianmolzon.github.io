@@ -56,11 +56,14 @@
       },
     ];
 
-    // Utility: pick a random panel from the palette
-    function getRandomPantone() {
-      const idx = Math.floor(Math.random() * pantonePalette.length);
-      // return a shallow copy so state is separate from the source palette
-      return { ...pantonePalette[idx] };
+    // Utility: pick a random panel from the palette, excluding a hex if provided
+    function getRandomPantone(excludeHex = null) {
+      let filtered = pantonePalette;
+      if (excludeHex) {
+        filtered = pantonePalette.filter(p => p.hex !== excludeHex);
+      }
+      const idx = Math.floor(Math.random() * filtered.length);
+      return { ...filtered[idx] };
     }
 
     // --- State ---
@@ -68,57 +71,81 @@
     const neutralBlack = { ...pantonePalette[0] }; // Neutral Black
     const softWhite = { ...pantonePalette[1] }; // Soft White
     const middleIndex = Math.floor(NUM_PANELS / 2);
-    let panels = Array.from({ length: NUM_PANELS }, (_, i) =>
-      i === middleIndex ? { ...softWhite } : { ...neutralBlack }
-    );
+    let panels = Array.from({ length: NUM_PANELS }, (_, i) => {
+      const basePanel = i === middleIndex ? { ...softWhite } : { ...neutralBlack };
+      return { ...basePanel, originalIndex: i };
+    });
+    let panelsHistory = Array.from({ length: NUM_PANELS }, () => []);
     let direction = 1; // 1 = right, -1 = left
 
     const stripEl = document.getElementById("panelStrip");
 
     function renderPanels() {
       for (let i = 0; i < panels.length; i++) {
-        renderStaticPanel(i, panels[i]);
-        renderTopPanel(i, panels[i]);
+        renderPanelAtIndex(i, panels[i]);
       }
     }
 
-    // --- Render the top rotating panel for a given index ---
-    function renderTopPanel(index, panelData) {
-      const wrapper = stripEl.querySelector(
-        `.panel-wrapper[data-index="${index}"]`
-      );
-      if (!wrapper || !panelData) return;
+    // --- Initialize a panel element with data ---
+    function initializePanelElement(panelEl, index, panelData, options = {}) {
+      panelEl.className = options.className || "panel";
+      panelEl.dataset.index = index.toString();
 
-      const panelEl = wrapper.querySelector(".panel");
-      if (!panelEl) return;
-
-      // Apply color + text to the top panel
-      panelEl.style.backgroundColor = panelData.hex;
-      panelEl.style.color = panelData.textColor;
-
-      const content = panelEl.querySelector(".panel-content");
-      if (content) {
-        content.innerText = panelData.name;
+      // Create or get content element
+      let content = panelEl.querySelector(".panel-content");
+      if (!content) {
+        content = document.createElement("div");
+        content.className = "panel-content";
+        panelEl.appendChild(content);
       }
+
+      // Apply panel data
+      if (panelData) {
+        panelEl.style.backgroundColor = panelData.hex;
+        panelEl.style.color = panelData.textColor;
+        const originalIndex = panelData.originalIndex !== undefined ? panelData.originalIndex : index;
+        content.innerText = `${originalIndex}: ${panelData.name}`;
+      }
+
+      // Add click listener if specified
+      if (options.addClickListener) {
+        panelEl.addEventListener("click", handlePanelClick);
+      }
+
+      return panelEl;
     }
 
-    // --- Render a static underlying panel for a given index ---
-    function renderStaticPanel(index, panelData) {
-      const wrapper = stripEl.querySelector(
-        `.panel-wrapper[data-index="${index}"]`
-      );
+    // --- Create a new panel element ---
+    function createPanelElement(index, panelData, options = {}) {
+      const panelEl = document.createElement("div");
+      return initializePanelElement(panelEl, index, panelData, options);
+    }
+
+    function renderPanelAtIndex(index, panelData) {
+      const wrapper = stripEl.querySelector(`.panel-wrapper[data-index="${index}"]`);
       if (!wrapper || !panelData) return;
 
+      const topEl = wrapper.querySelector(".panel");
       const underEl = wrapper.querySelector(".under-panel");
-      if (!underEl) return;
 
-      // Apply color + text to the static under panel
-      underEl.style.backgroundColor = panelData.hex;
-      underEl.style.color = panelData.textColor;
+      if (topEl) {
+        topEl.style.backgroundColor = panelData.hex;
+        topEl.style.color = panelData.textColor;
+        const c = topEl.querySelector(".panel-content");
+        if (c) {
+          const originalIndex = panelData.originalIndex !== undefined ? panelData.originalIndex : index;
+          c.innerText = `${originalIndex}: ${panelData.name}`;
+        }
+      }
 
-      const staticContent = underEl.querySelector(".static-content");
-      if (staticContent) {
-        staticContent.innerText = panelData.name;
+      if (underEl) {
+        underEl.style.backgroundColor = panelData.hex;
+        underEl.style.color = panelData.textColor;
+        const sc = underEl.querySelector(".static-content");
+        if (sc) {
+          const originalIndex = panelData.originalIndex !== undefined ? panelData.originalIndex : index;
+          sc.innerText = `${originalIndex}: ${panelData.name}`;
+        }
       }
     }
 
@@ -137,19 +164,11 @@
         underText.className = "panel-content static-content";
         under.appendChild(underText);
 
-        const panelEl = document.createElement("div");
-        panelEl.className = "panel";
-        panelEl.dataset.index = index.toString();
-
-        const content = document.createElement("div");
-        content.className = "panel-content";
-        panelEl.appendChild(content);
+        const panelEl = createPanelElement(index, panel, { addClickListener: true });
 
         wrapper.appendChild(under);
         wrapper.appendChild(panelEl);
         stripEl.appendChild(wrapper);
-
-        panelEl.addEventListener("click", handlePanelClick);
       });
     }
 
@@ -158,73 +177,53 @@ function handlePanelClick(event) {
   const fromIndex = Number(panelEl.dataset.index);
   const toIndex = fromIndex + direction;
 
-  // Don’t go off the ends
-  if (toIndex < 0 || toIndex >= NUM_PANELS) return;
+  if (toIndex < 0 || toIndex >= NUM_PANELS) {
 
-  const fromWrapper = panelEl.closest(".panel-wrapper");
-  const toWrapper = stripEl.querySelector(
-    `.panel-wrapper[data-index="${toIndex}"]`
-  );
+    // If there is history, restore the previous color
+    if (panelsHistory[fromIndex].length > 0) {
+      panels[fromIndex] = panelsHistory[fromIndex].pop();
+      renderPanelAtIndex(fromIndex, panels[fromIndex]);
+      direction *= -1;
+      console.log('History response');
+      console.log(panels);
+      return;
+    }
 
-  const oldPanelData = panels[fromIndex];
-  const newUnderPanel = getRandomPantone();
+    // Otherwise behave normally
+    const newRandomPanel = { ...getRandomPantone(panels[fromIndex].hex), originalIndex: fromIndex };
+    panelsHistory[fromIndex].push(panels[fromIndex]); // save previous color
+    panels[fromIndex] = newRandomPanel;
 
-  const isTurningRight = direction === 1;
-  const turnClass = isTurningRight ? "turn-right" : "turn-left";
+    renderPanelAtIndex(fromIndex, panels[fromIndex]);
+    direction *= -1;
+    console.log('Standard response');
+    console.log(panels);
+    return;
+  }
 
-  // 1. New under-panel at origin
-  renderStaticPanel(fromIndex, newUnderPanel);
+  const clickedPanelData = panels[fromIndex];
+  const newRandomPanel = { ...getRandomPantone(clickedPanelData.hex), originalIndex: fromIndex };
 
-  // 2. Allow crossing boundaries during animation
-  fromWrapper.style.overflow = "visible";
-  toWrapper.style.overflow = "visible";
+  // Save previous colors before overwriting
+  panelsHistory[fromIndex].push(clickedPanelData);
+  panelsHistory[toIndex].push(panels[toIndex]);
 
-  // 3. Animate the top card
-  panelEl.classList.add("is-animating", turnClass);
+  // Update state
+  panels[toIndex] = { ...clickedPanelData };
+  panels[fromIndex] = newRandomPanel;
 
-  const fullDuration = 600;
-
-  setTimeout(() => {
-    // 4. End of animation: move card to destination
-
-    panelEl.classList.remove("is-animating", "turn-left", "turn-right");
-
-    // Temporarily disable transition so we can reset transform without a jump
-    panelEl.style.transition = "none";
-
-    // Move DOM card into the destination wrapper
-    fromWrapper.removeChild(panelEl);
-    toWrapper.appendChild(panelEl);
-
-    // Update its index data attribute
-    panelEl.dataset.index = String(toIndex);
-
-    // Reset transform so it “lands” flat in the new slot
-    panelEl.style.transform = "none";
-
-    // Restore overflow defaults
-    fromWrapper.style.overflow = "";
-    toWrapper.style.overflow = "";
-
-    // 5. Update logical state
-    panels[fromIndex] = newUnderPanel;  // origin now has the new card underneath
-    panels[toIndex] = oldPanelData;     // destination inherits the old top card
-
-    renderStaticPanel(fromIndex, panels[fromIndex]);
-    renderStaticPanel(toIndex, panels[toIndex]);
-
-    // Force reflow then restore transition for next time
-    void panelEl.offsetWidth;
-    panelEl.style.transition = "";
-
-  }, fullDuration);
+  // Re-render both positions
+  renderPanelAtIndex(toIndex, panels[toIndex]);
+  renderPanelAtIndex(fromIndex, panels[fromIndex]);
 
   direction *= -1;
+  console.log('Click response');
+  console.log(panels);
 }
 
-    // --- Initial bootstrapping ---
-    createPanelElements();
-    renderPanels();
-  </script>
+  // --- Initial bootstrapping ---
+  createPanelElements();
+  renderPanels();
+</script>
 </body>
 </html>
