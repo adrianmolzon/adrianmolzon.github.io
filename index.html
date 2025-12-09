@@ -90,6 +90,7 @@
     function initializePanelElement(panelEl, index, panelData, options = {}) {
       panelEl.className = options.className || "panel";
       panelEl.dataset.index = index.toString();
+      panelEl.draggable = true;
 
       // Create or get content element
       let content = panelEl.querySelector(".panel-content");
@@ -111,6 +112,12 @@
       if (options.addClickListener) {
         panelEl.addEventListener("click", handlePanelClick);
       }
+
+      // Add drag event listeners
+      panelEl.addEventListener("dragstart", handleDragStart);
+      panelEl.addEventListener("dragover", handleDragOver);
+      panelEl.addEventListener("drop", handleDrop);
+      panelEl.addEventListener("dragend", handleDragEnd);
 
       return panelEl;
     }
